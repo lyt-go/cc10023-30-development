@@ -6,13 +6,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.seed import SEED_ROWS
+from app.seed import SEED_INTERNAL, SEED_ROWS
 
 
 class Store:
     def __init__(self) -> None:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
+        }
+        # 领域内部表（规则版本、聚类轮次、样本标签、重放记录等）不属于导航模块，
+        # 单独存放，避免出现在概览的「业务模块」统计里。
+        self._internal: dict[str, list[dict[str, Any]]] = {
+            name: [dict(row) for row in rows] for name, rows in SEED_INTERNAL.items()
         }
 
     def module_names(self) -> list[str]:
@@ -26,6 +31,14 @@ class Store:
             if int(row.get("id", 0)) == entry_id:
                 return row
         return None
+
+    def internal(self, table: str) -> list[dict[str, Any]]:
+        """领域内部表：规则版本、聚类轮次、样本标签、重放记录按需建表。"""
+        return self._internal.setdefault(table, [])
+
+    def next_id(self, table: str) -> int:
+        rows = self._internal.setdefault(table, [])
+        return max((int(row.get("id", 0)) for row in rows), default=0) + 1
 
     def overview(self) -> dict[str, object]:
         modules: list[dict[str, object]] = []

@@ -77,5 +77,30 @@ npm run dev
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
 
+## 场景标注：分群规则发布与聚类轮次
+
+`scenario_label` 在通用资源路由之外还有一层领域子路径（`app/routers/scenario_label.py`），
+对应前端「场景标注 · 分群规则」工作台（`frontend/src/views/ScenarioLabelRules.vue`）：
+
+| 接口 | 说明 |
+| --- | --- |
+| `GET /api/scenario_label/rules` | 草稿、已生效版本、历史归档版本分组查询，可带 `?status=已生效` |
+| `POST /api/scenario_label/rules/publish` | 把标注规则发布成生效版本，快照当时的筛选条件和字段版本 |
+| `POST /api/scenario_label/rules/drafts/{id}` | 修改规则草稿，不影响已发布版本和已有轮次 |
+| `POST /api/scenario_label/rounds` | 用一版完整生效规则开一轮聚类，对实际样本写入待处理标签 |
+| `GET /api/scenario_label/rounds` | 聚类历史（规则版本、样本名单、状态） |
+| `GET /api/scenario_label/rounds/{id}/receipt` | 运行回执（采用的规则版本与每个样本的分类结果） |
+| `POST /api/scenario_label/rounds/{id}/actions` | `应用新版`（整轮重算）/ `提交生效` / `归档` |
+| `POST /api/scenario_label/rounds/{id}/replay` | 用归档规则与归档样本重放，返回计算名单与差异；可传 `archive` |
+| `GET /api/scenario_label/samples` | 当前样本维表（轮次在开跑时已对样本做过快照） |
+
+业务约束：
+
+- 一轮聚类只锁定一版完整规则；发布新版不会覆盖已提交/已归档的轮次结果。
+- 开跑后发布新版，旧轮次可继续用开跑时的规则处理；只有显式「应用新版」才整轮重算。
+- 标签与运行回执引用同一个 `rule_version`；归档轮次不可再改。
+- 重放只读归档快照，即使当前样本字段取值或规则来源已被修改，也不影响重算与差异结果，
+  并且不会改动原归档。
+
 领域：数据工程
 子方向：数据分析与数据应用
